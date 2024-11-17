@@ -2,39 +2,40 @@ package skiplist
 
 import (
 	"bytes"
+	"cmp"
 	"testing"
 )
 
 func TestSkipList_Insert(t *testing.T) {
-	s := NewSkipList()
+	s := NewSkipList[[]byte, string](bytes.Compare)
 
 	key := []byte("key1")
-	value := []byte("value1")
+	value := "value1"
 
 	// Test inserting a new key
 	oldValue, updated := s.Insert(key, value)
 	if updated {
 		t.Errorf("expected updated to be false, got true")
 	}
-	if oldValue != nil {
-		t.Errorf("expected oldValue to be nil, got %v", oldValue)
+	if oldValue != "" {
+		t.Errorf("expected oldValue to be empty, got %v", oldValue)
 	}
 
 	// Test inserting the same key again
-	newValue := []byte("value2")
+	newValue := "value2"
 	oldValue, updated = s.Insert(key, newValue)
 	if !updated {
 		t.Errorf("expected updated to be true, got false")
 	}
-	if !bytes.Equal(oldValue, value) {
+	if oldValue != value {
 		t.Errorf("expected oldValue to be %v, got %v", value, oldValue)
 	}
 }
 
 func TestSkipList_Delete(t *testing.T) {
-	s := NewSkipList()
+	s := NewSkipList[string, []byte](cmp.Compare[string])
 
-	key := []byte("key1")
+	key := "key1"
 	value := []byte("value1")
 
 	// Test deleting a non-existent key
@@ -67,9 +68,9 @@ func TestSkipList_Delete(t *testing.T) {
 }
 
 func TestSkipList_Find(t *testing.T) {
-	s := NewSkipList()
+	s := NewSkipList[int, []byte](cmp.Compare[int])
 
-	key := []byte("key1")
+	key := 1
 	value := []byte("value1")
 
 	// Test finding a non-existent key

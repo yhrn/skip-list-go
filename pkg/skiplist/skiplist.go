@@ -1,7 +1,6 @@
 package skiplist
 
 import (
-	"bytes"
 	"math"
 	randv2 "math/rand/v2"
 )
@@ -45,23 +44,31 @@ func randomHeight() int {
 	return height
 }
 
-type node struct {
-	key   []byte
-	value []byte
-	tower [MaxHeight]*node
+type node[K any, V any] struct {
+	key   K
+	value V
+	tower [MaxHeight]*node[K, V]
 }
-type SkipList struct {
-	head   *node
-	height int
+type SkipList[K any, V any] struct {
+	head       *node[K, V]
+	height     int
+	comparator func(a, b K) int
 }
 
-func NewSkipList() *SkipList {
-	return &SkipList{head: &node{}, height: 1}
+// NewSkipList creates a new SkipList with the given key comparator function.
+// The key comparator function should return a negative value if a < b, 0 if a == b
+// and a positive value if a > b.
+func NewSkipList[K any, V any](keyComparator func(a, b K) int) *SkipList[K, V] {
+	return &SkipList[K, V]{
+		head:       &node[K, V]{},
+		height:     1,
+		comparator: keyComparator,
+	}
 }
 
 // Insert inserts a new key-value pair into the list. If the key already exists
 // the old value is returned along with true. If the key did not exist false is returned.
-func (s *SkipList) Insert(key, value []byte) ([]byte, bool) {
+func (s *SkipList[K, V]) Insert(key K, value V) (V, bool) {
 	found, rightmostSmaller := s.search(key)
 	if found != nil {
 		// The key already exists in the list. Update the value.
@@ -83,21 +90,21 @@ func (s *SkipList) Insert(key, value []byte) ([]byte, bool) {
 
 	// Insert a new node and point rightmostSmaller nodes at each level to the new node (up to
 	// the height of the new node).
-	newNode := &node{key: key, value: value}
+	newNode := &node[K, V]{key: key, value: value}
 	for level := 0; level < newNodeHeight; level++ {
 		newNode.tower[level] = rightmostSmaller[level].tower[level]
 		rightmostSmaller[level].tower[level] = newNode
 	}
 
-	return nil, false
+	return *new(V), false
 }
 
 // Delete deletes a key-value pair from the list. If the key was found the old value is returned
 // along with true. If the key was not found false is returned.
-func (s *SkipList) Delete(key []byte) ([]byte, bool) {
+func (s *SkipList[K, V]) Delete(key K) (V, bool) {
 	found, rightmostSmaller := s.search(key)
 	if found == nil {
-		return nil, false
+		return *new(V), false
 	}
 
 	// Start from level 0 and see if the rightmost node with a smaller key at this level
@@ -121,23 +128,23 @@ func (s *SkipList) Delete(key []byte) ([]byte, bool) {
 
 // Find finds a value in the list given its key. If the key is found the value is returned
 // along with true, otherwise false is returned.
-func (s *SkipList) Find(key []byte) ([]byte, bool) {
+func (s *SkipList[K, V]) Find(key K) (V, bool) {
 	found, _ := s.search(key)
 	if found != nil {
 		return found.value, true
 	}
-	return nil, false
+	return *new(V), false
 }
 
-func (s *SkipList) search(key []byte) (*node, [MaxHeight]*node) {
-	var next *node
-	var rightmostSmaller [MaxHeight]*node
+func (s *SkipList[K, V]) search(key K) (*node[K, V], [MaxHeight]*node[K, V]) {
+	var next *node[K, V]
+	var rightmostSmaller [MaxHeight]*node[K, V]
 
 	current := s.head
 	for level := s.height - 1; level >= 0; level-- {
 		// Go through the list at the current level. If we find a nil node we need to drop down a level.
 		for next = current.tower[level]; next != nil; next = current.tower[level] {
-			if bytes.Compare(key, next.key) <= 0 {
+			if s.comparator(key, next.key) <= 0 {
 				// This means that we have found the node that is either the node we're looking for
 				// or a node with a key that is larger than the key we're looking for. Time to go down a level.
 
@@ -155,7 +162,7 @@ func (s *SkipList) search(key []byte) (*node, [MaxHeight]*node) {
 		rightmostSmaller[level] = current
 	}
 
-	if next != nil && bytes.Equal(key, next.key) {
+	if next != nil && s.comparator(key, next.key) == 0 {
 		return next, rightmostSmaller
 	}
 	return nil, rightmostSmaller
