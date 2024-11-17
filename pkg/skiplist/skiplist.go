@@ -18,8 +18,9 @@ import (
 // index of that value is the level of the new node.
 
 const (
-	MaxHeight = 16
-	PValue    = 0.5
+	MaxHeight   = 16
+	MaxElements = 65536
+	PValue      = 0.5
 )
 
 var probabilities [MaxHeight]uint32
