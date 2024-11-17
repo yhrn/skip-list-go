@@ -5,66 +5,70 @@ import (
 	randv2 "math/rand/v2"
 )
 
-// using p = 1/2, i.e. 50% of the nodes are promoted to the next level
-// This means that max level is log_2(n), where n is the max number of nodes in the list
-// To keep things simple we say that max number of nodes we need to support is 2^16 = 65536
-// and log_2(65536) = 16 so that is the max height.
-
-// Probablity of a node occupying level l (zero indexed) is 1/2^l
-// So if we're using a psuedo random number generator that uses the full uint32 value range
-// we can slice that range in half repreatedly and store the largest value of the lower range
-// in an array that has one value for each level. We can then generate a random number
-// and go through the array until we find a value that is larger than the random number. The
-// index of that value is the level of the new node.
-
-const (
-	MaxHeight   = 16
-	MaxElements = 65536
-	PValue      = 0.5
-)
-
-var probabilities [MaxHeight]uint32
-
-func init() {
-	levelProb := 1.0 // level 0 has all values
-
-	for level := 0; level < MaxHeight; level++ {
-		probabilities[level] = uint32(levelProb * float64(math.MaxUint32))
-		levelProb *= PValue
-	}
-}
-
-func randomHeight() int {
-	randVal := randv2.Uint32()
-
-	height := 1
-	for height < MaxHeight && randVal <= probabilities[height] {
-		height++
-	}
-
-	return height
-}
-
 type node[K any, V any] struct {
 	key   K
 	value V
-	tower [MaxHeight]*node[K, V]
+	tower []*node[K, V]
 }
 type SkipList[K any, V any] struct {
-	head       *node[K, V]
-	height     int
-	comparator func(a, b K) int
+	head          *node[K, V]
+	height        int
+	maxHeight     int
+	probabilities []uint32
+	comparator    func(a, b K) int
+}
+
+func NewDefaultSkipList[K any, V any](keyComparator func(a, b K) int) *SkipList[K, V] {
+	return NewSkipList[K, V](keyComparator, 65536, 0.5)
 }
 
 // NewSkipList creates a new SkipList with the given key comparator function.
 // The key comparator function should return a negative value if a < b, 0 if a == b
 // and a positive value if a > b.
-func NewSkipList[K any, V any](keyComparator func(a, b K) int) *SkipList[K, V] {
-	return &SkipList[K, V]{
-		head:       &node[K, V]{},
-		height:     1,
-		comparator: keyComparator,
+func NewSkipList[K any, V any](keyComparator func(a, b K) int, performantCapacity int, pValue float64) *SkipList[K, V] {
+	if performantCapacity < 1 {
+		panic("performantCapacity must be at least 1")
 	}
+	if pValue <= 0.0 || pValue >= 1.0 {
+		panic("pValue must be in the range (0, 1)")
+	}
+	maxHeight := int(math.Ceil(logBaseX(1.0/pValue, float64(performantCapacity))))
+
+	answer := &SkipList[K, V]{
+		head:          &node[K, V]{tower: make([]*node[K, V], maxHeight)},
+		height:        1,
+		maxHeight:     maxHeight,
+		probabilities: make([]uint32, maxHeight),
+		comparator:    keyComparator,
+	}
+
+	// Probablity of a node occupying level l (zero indexed) is pValue^l
+	// So if we're using a psuedo random number generator that uses the full uint32 value range
+	// we can slice that range in half repreatedly and store the largest value of the lower range
+	// in an array that has one value for each level. We can then generate a random number
+	// and go through the array until we find a value that is larger than the random number. The
+	// index of that value is the level of the new node.
+	levelProb := 1.0 // level 0 has all values
+	for level := 0; level < maxHeight; level++ {
+		answer.probabilities[level] = uint32(levelProb * float64(math.MaxUint32))
+		levelProb *= pValue
+	}
+	return answer
+}
+
+func logBaseX(base, x float64) float64 {
+	return math.Log(x) / math.Log(base)
+}
+
+func (s *SkipList[K, V]) randomHeight() int {
+	randVal := randv2.Uint32()
+
+	height := 1
+	for height < s.maxHeight && randVal <= s.probabilities[height] {
+		height++
+	}
+
+	return height
 }
 
 // Insert inserts a new key-value pair into the list. If the key already exists
@@ -78,7 +82,7 @@ func (s *SkipList[K, V]) Insert(key K, value V) (V, bool) {
 		return oldValue, true
 	}
 
-	newNodeHeight := randomHeight()
+	newNodeHeight := s.randomHeight()
 
 	if newNodeHeight > s.height {
 		// The new node is taller than the current list. This means that head will be the previous
@@ -91,7 +95,11 @@ func (s *SkipList[K, V]) Insert(key K, value V) (V, bool) {
 
 	// Insert a new node and point rightmostSmaller nodes at each level to the new node (up to
 	// the height of the new node).
-	newNode := &node[K, V]{key: key, value: value}
+	newNode := &node[K, V]{
+		key:   key,
+		value: value,
+		tower: make([]*node[K, V], s.maxHeight),
+	}
 	for level := 0; level < newNodeHeight; level++ {
 		newNode.tower[level] = rightmostSmaller[level].tower[level]
 		rightmostSmaller[level].tower[level] = newNode
@@ -137,9 +145,9 @@ func (s *SkipList[K, V]) Find(key K) (V, bool) {
 	return *new(V), false
 }
 
-func (s *SkipList[K, V]) search(key K) (*node[K, V], [MaxHeight]*node[K, V]) {
+func (s *SkipList[K, V]) search(key K) (*node[K, V], []*node[K, V]) {
 	var next *node[K, V]
-	var rightmostSmaller [MaxHeight]*node[K, V]
+	rightmostSmaller := make([]*node[K, V], s.maxHeight)
 
 	current := s.head
 	for level := s.height - 1; level >= 0; level-- {

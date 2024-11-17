@@ -11,7 +11,7 @@ import (
 )
 
 func TestSkipList_Insert(t *testing.T) {
-	s := NewSkipList[[]byte, string](bytes.Compare)
+	s := NewDefaultSkipList[[]byte, string](bytes.Compare)
 
 	key := []byte("key1")
 	value := "value1"
@@ -46,7 +46,7 @@ func TestSkipList_Insert(t *testing.T) {
 }
 
 func TestSkipList_Delete(t *testing.T) {
-	s := NewSkipList[string, []byte](cmp.Compare[string])
+	s := NewDefaultSkipList[string, []byte](cmp.Compare[string])
 
 	key := "key1"
 	value := []byte("value1")
@@ -87,7 +87,7 @@ func TestSkipList_Delete(t *testing.T) {
 }
 
 func TestSkipList_Find(t *testing.T) {
-	s := NewSkipList[int, []byte](cmp.Compare[int])
+	s := NewDefaultSkipList[int, []byte](cmp.Compare[int])
 
 	key := 1
 	value := []byte("value1")
@@ -118,11 +118,11 @@ func BenchmarkSkipList_Insert(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		rndValIx := i % MaxElements
+		rndValIx := i % 65536
 		if rndValIx == 0 {
 			// Starting from the beginning of the random values list, create a new skip list
 			// to avoid just inserting keys that are already in the list.
-			s = NewSkipList[int, int](cmp.Compare[int])
+			s = NewDefaultSkipList[int, int](cmp.Compare[int])
 		}
 		b.StartTimer()
 		s.Insert(rndVals[rndValIx], i)
@@ -135,11 +135,11 @@ func BenchmarkSkipList_Delete(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		rndValIx := i % MaxElements
+		rndValIx := i % 65536
 		if rndValIx == 0 {
 			// Starting from the beginning of the random values list, create a new skip list
 			// and populate it with random values so were not deleting from an empty list.
-			s = NewSkipList[int, int](cmp.Compare[int])
+			s = NewDefaultSkipList[int, int](cmp.Compare[int])
 			for i := 0; i < len(rndVals); i++ {
 				s.Insert(rndVals[i], i)
 			}
@@ -150,7 +150,7 @@ func BenchmarkSkipList_Delete(b *testing.B) {
 }
 
 func BenchmarkSkipList_Find(b *testing.B) {
-	s := NewSkipList[int, int](cmp.Compare[int])
+	s := NewDefaultSkipList[int, int](cmp.Compare[int])
 	rndVals := randomIntValues(b)
 
 	for i := 0; i < len(rndVals); i++ {
@@ -160,7 +160,7 @@ func BenchmarkSkipList_Find(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		s.Find(rndVals[i%MaxElements])
+		s.Find(rndVals[i%65536])
 	}
 }
 
@@ -170,7 +170,7 @@ func BenchmarkLinkedList_Insert(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		rndValIx := i % MaxElements
+		rndValIx := i % 65536
 		if rndValIx == 0 {
 			// Starting from the beginning of the random values list, create a new linked list
 			// to avoid just inserting keys that are already in the list.
@@ -187,7 +187,7 @@ func BenchmarkLinkedList_Delete(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		rndValIx := i % MaxElements
+		rndValIx := i % 65536
 		if rndValIx == 0 {
 			// Starting from the beginning of the random values list, create a new linked list
 			// and populate it with random values so were not deleting from an empty list.
@@ -204,7 +204,7 @@ func BenchmarkLinkedList_Delete(b *testing.B) {
 func BenchmarkLinkedList_Find(b *testing.B) {
 	l := basiclist.NewBasicList()
 	rndVals := randomIntValues(b)
-	elemCount := int(math.Min(float64(b.N), MaxElements))
+	elemCount := int(math.Min(float64(b.N), 65536))
 
 	for i := 0; i < elemCount; i++ {
 		l.Insert(rndVals[i], i)
@@ -213,12 +213,12 @@ func BenchmarkLinkedList_Find(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		l.Search(rndVals[i%MaxElements])
+		l.Search(rndVals[i%65536])
 	}
 }
 
 func randomIntValues(b *testing.B) []int {
-	elemCount := int(math.Min(float64(b.N), MaxElements))
+	elemCount := int(math.Min(float64(b.N), 65536))
 	values := make([]int, elemCount)
 	for i := 0; i < elemCount; i++ {
 		values[i] = randv2.Int()
