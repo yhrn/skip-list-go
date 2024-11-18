@@ -111,9 +111,42 @@ func TestSkipList_Find(t *testing.T) {
 		t.Errorf("expected foundValue to be %v, got %v", value, foundValue)
 	}
 }
+func TestSkipList_InsertAndRemoveRandomElements(t *testing.T) {
+	s := NewSkipList[int, int](cmp.Compare[int])
+	rndVals := randomIntValues(100)
+
+	// Insert 100 random elements
+	for i := 0; i < len(rndVals); i++ {
+		s.Insert(rndVals[i], i)
+	}
+
+	// Remove the elements one by one and verify the rest are still there
+	for i := 0; i < len(rndVals); i++ {
+		keyToRemove := rndVals[i]
+		s.Delete(keyToRemove)
+
+		// Verify the removed element is not found
+		_, found := s.Find(keyToRemove)
+		if found {
+			t.Errorf("expected key %v to be removed, but it was found", keyToRemove)
+		}
+
+		// Verify the rest of the elements are still there
+		for j := i + 1; j < len(rndVals); j++ {
+			keyToFind := rndVals[j]
+			value, found := s.Find(keyToFind)
+			if !found {
+				t.Errorf("expected key %v to be found, but it was not", keyToFind)
+			}
+			if value != j {
+				t.Errorf("expected value %v for key %v, got %v", j, keyToFind, value)
+			}
+		}
+	}
+}
 
 func BenchmarkSkipList_Insert(b *testing.B) {
-	rndVals := randomIntValues(b)
+	rndVals := randomIntValuesB(b)
 	var s *SkipList[int, int]
 
 	for i := 0; i < b.N; i++ {
@@ -130,7 +163,7 @@ func BenchmarkSkipList_Insert(b *testing.B) {
 }
 
 func BenchmarkSkipList_Delete(b *testing.B) {
-	rndVals := randomIntValues(b)
+	rndVals := randomIntValuesB(b)
 	var s *SkipList[int, int]
 
 	for i := 0; i < b.N; i++ {
@@ -151,7 +184,7 @@ func BenchmarkSkipList_Delete(b *testing.B) {
 
 func BenchmarkSkipList_Find(b *testing.B) {
 	s := NewSkipList[int, int](cmp.Compare[int])
-	rndVals := randomIntValues(b)
+	rndVals := randomIntValuesB(b)
 
 	for i := 0; i < len(rndVals); i++ {
 		s.Insert(rndVals[i], i)
@@ -166,7 +199,7 @@ func BenchmarkSkipList_Find(b *testing.B) {
 
 func BenchmarkLinkedList_Insert(b *testing.B) {
 	var l basiclist.BasicList
-	rndVals := randomIntValues(b)
+	rndVals := randomIntValuesB(b)
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
@@ -183,7 +216,7 @@ func BenchmarkLinkedList_Insert(b *testing.B) {
 
 func BenchmarkLinkedList_Delete(b *testing.B) {
 	var l basiclist.BasicList
-	rndVals := randomIntValues(b)
+	rndVals := randomIntValuesB(b)
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
@@ -203,7 +236,7 @@ func BenchmarkLinkedList_Delete(b *testing.B) {
 
 func BenchmarkLinkedList_Find(b *testing.B) {
 	l := basiclist.NewBasicList()
-	rndVals := randomIntValues(b)
+	rndVals := randomIntValuesB(b)
 	elemCount := int(math.Min(float64(b.N), MaxElements))
 
 	for i := 0; i < elemCount; i++ {
@@ -217,8 +250,11 @@ func BenchmarkLinkedList_Find(b *testing.B) {
 	}
 }
 
-func randomIntValues(b *testing.B) []int {
-	elemCount := int(math.Min(float64(b.N), MaxElements))
+func randomIntValuesB(b *testing.B) []int {
+	return randomIntValues(int(math.Min(float64(b.N), MaxElements)))
+}
+
+func randomIntValues(elemCount int) []int {
 	values := make([]int, elemCount)
 	for i := 0; i < elemCount; i++ {
 		values[i] = randv2.Int()
