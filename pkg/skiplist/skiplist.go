@@ -14,7 +14,7 @@ import (
 // So if we're using a psuedo random number generator that uses the full uint32 value range
 // we can slice that range in half repreatedly and store the largest value of the lower range
 // in an array that has one value for each level. We can then generate a random number
-// and go through the array until we find a value that is larger than the random number. The
+// and go through the array until we find a value that is smaller than the random number. The
 // index of that value is the level of the new node.
 
 const (
